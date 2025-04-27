@@ -15,22 +15,164 @@ macro_rules! jvmti_unchecked {
     };
 }
 
-fn to_string(ptr: *mut c_char) -> String {
-    unsafe {
-        if ptr.is_null() {
-            String::new()
-        } else {
-            let c_str = CString::from_raw(ptr);
-            String::from(c_str.to_str().unwrap())
+#[derive(Clone)]
+pub struct JvmtiThreadInfo {
+    pub name: String,
+    pub priority: i32,
+    pub is_daemon: bool,
+    pub thread_group: jthreadGroup,
+    pub context_class_loader: jobject,
+}
+
+impl JvmtiThreadInfo {
+    pub fn from_raw(env: &JvmtiEnv, info: jvmtiThreadInfo) -> Self {
+        Self {
+            name: env.to_string(info.name),
+            priority: info.priority as i32,
+            is_daemon: info.is_daemon == 1,
+            thread_group: info.thread_group,
+            context_class_loader: info.context_class_loader,
+        }
+    }
+
+    pub fn to_raw(&self) -> jvmtiThreadInfo {
+        jvmtiThreadInfo {
+            name: CString::new(self.name.clone()).unwrap().into_raw(),
+            priority: self.priority as jint,
+            is_daemon: self.is_daemon as jboolean,
+            thread_group: self.thread_group,
+            context_class_loader: self.context_class_loader,
         }
     }
 }
 
-fn as_vec<T>(count: i32, ptr: *mut T) -> Vec<T> {
-    unsafe {
-        let size = count as usize;
+#[derive(Clone)]
+pub struct JvmtiLocalVariableEntry {
+    pub start_location: jlocation,
+    pub length: i32,
+    pub name: String,
+    pub signature: String,
+    pub generic_signature: String,
+    pub slot: i32,
+}
 
-        Vec::from_raw_parts(ptr, size, size)
+impl JvmtiLocalVariableEntry {
+    pub fn from_raw(env: &JvmtiEnv, entry: &jvmtiLocalVariableEntry) -> Self {
+        Self {
+            start_location: entry.start_location,
+            length: entry.length as i32,
+            name: env.to_string(entry.name),
+            signature: env.to_string(entry.signature),
+            generic_signature: env.to_string(entry.generic_signature),
+            slot: entry.slot as i32,
+        }
+    }
+
+    pub fn to_raw(&self) -> jvmtiLocalVariableEntry {
+        jvmtiLocalVariableEntry {
+            start_location: self.start_location,
+            length: self.length as jint,
+            name: CString::new(self.name.clone()).unwrap().into_raw().into(),
+            signature: CString::new(self.signature.clone()).unwrap().into_raw().into(),
+            generic_signature: CString::new(self.generic_signature.clone()).unwrap().into_raw().into(),
+            slot: self.slot as jint,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct JvmtiThreadGroupInfo {
+    pub parent: jthreadGroup,
+    pub name: String,
+    pub max_priority: i32,
+    pub is_daemon: bool,
+}
+
+impl JvmtiThreadGroupInfo {
+    pub fn from_raw(env: &JvmtiEnv, info: jvmtiThreadGroupInfo) -> Self {
+        Self {
+            parent: info.parent,
+            name: env.to_string(info.name),
+            max_priority: info.max_priority as i32,
+            is_daemon: info.is_daemon == 1,
+        }
+    }
+
+    pub fn to_raw(&self) -> jvmtiThreadGroupInfo {
+        jvmtiThreadGroupInfo {
+            parent: self.parent,
+            name: CString::new(self.name.clone()).unwrap().into_raw(),
+            max_priority: self.max_priority as jint,
+            is_daemon: self.is_daemon as jboolean,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct JvmtiMonitorUsage {
+    pub owner: jthread,
+    pub entry_count: i32,
+    pub waiter_count: i32,
+    pub waiters: Vec<jthread>,
+    pub notify_waiter_count: i32,
+    pub notify_waiters: Vec<jthread>,
+}
+
+impl JvmtiMonitorUsage {
+    pub fn from_raw(env: &JvmtiEnv, info: jvmtiMonitorUsage) -> Self {
+        Self {
+            owner: info.owner,
+            entry_count: info.entry_count,
+            waiter_count: info.waiter_count,
+            waiters: env.as_vec(info.waiter_count, info.waiters),
+            notify_waiter_count: info.notify_waiter_count,
+            notify_waiters: env.as_vec(info.notify_waiter_count, info.notify_waiters),
+        }
+    }
+}
+
+pub struct JvmtiExtensionFunctionInfo {
+    pub func: jvmtiExtensionFunction,
+    pub id: String,
+    pub short_description: String,
+    pub param_count: i32,
+    pub params: Vec<jvmtiParamInfo>,
+    pub error_count: i32,
+    pub errors: Vec<jvmtiError>,
+}
+
+impl JvmtiExtensionFunctionInfo {
+    pub fn from_raw(env: &JvmtiEnv, info: &jvmtiExtensionFunctionInfo) -> Self {
+        Self {
+            func: info.func,
+            id: env.to_string(info.id),
+            short_description: env.to_string(info.short_description),
+            param_count: info.param_count as i32,
+            params: env.as_vec(info.param_count, info.params),
+            error_count: info.error_count as i32,
+            errors: env.as_vec(info.error_count, info.errors),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct JvmtiExtensionEventInfo {
+    pub extension_event_index: i32,
+    pub id: String,
+    pub short_description: String,
+    pub param_count: i32,
+    pub params: Vec<jvmtiParamInfo>,
+}
+
+impl JvmtiExtensionEventInfo {
+    pub fn from_raw(env: &JvmtiEnv, info: &jvmtiExtensionEventInfo) -> Self {
+        Self {
+            extension_event_index: info.extension_event_index,
+            id: env.to_string(info.id),
+            short_description: env.to_string(info.short_description),
+            param_count: info.param_count as i32,
+            params: env.as_vec(info.param_count, info.params),
+        }
     }
 }
 
@@ -49,6 +191,29 @@ pub struct JvmtiEnv {
 }
 
 impl JvmtiEnv {
+    pub fn as_vec<T>(&self, count: i32, ptr: *mut T) -> Vec<T> {
+        let size = count as usize;
+
+        let vec = unsafe { Vec::from_raw_parts(ptr, size, size) };
+
+        jvmti_unchecked!(self, Deallocate, ptr as *mut c_uchar);
+
+        vec
+    }
+
+    fn to_string(&self, ptr: *mut c_char) -> String {
+        if ptr.is_null() {
+            String::new()
+        } else {
+            let c_str = unsafe { CString::from_raw(ptr) };
+            let string = String::from(c_str.to_str().unwrap());
+
+            jvmti_unchecked!(self, Deallocate, ptr as *mut c_uchar);
+
+            string
+        }
+    }
+
     pub fn set_event_notification_mode(
         &self,
         mode: jvmtiEventMode,
@@ -62,8 +227,9 @@ impl JvmtiEnv {
             event_type,
             event_thread
         )
-        .value(|| ())
+            .value(|| ())
     }
+
 
     pub fn get_all_threads(&self) -> JvmtiResult<Vec<jthread>> {
         let mut count: i32 = none();
@@ -73,7 +239,7 @@ impl JvmtiEnv {
 
         let error = jvmti_unchecked!(self, GetAllThreads, count_ptr, threads_ptr);
 
-        error.value(|| as_vec(count, threads))
+        error.value(|| self.as_vec(count, threads))
     }
 
     pub fn suspend_thread(&self, thread: jthread) -> JvmtiResult<()> {
@@ -92,11 +258,13 @@ impl JvmtiEnv {
         jvmti_unchecked!(self, InterruptThread, thread).value(|| ())
     }
 
-    pub fn get_thread_info(&self, thread: jthread) -> JvmtiResult<jvmtiThreadInfo> {
+    pub fn get_thread_info(&self, thread: jthread) -> JvmtiResult<JvmtiThreadInfo> {
         let mut info: jvmtiThreadInfo = none();
         let info_ptr: *mut jvmtiThreadInfo = &mut info;
 
-        jvmti_unchecked!(self, GetThreadInfo, thread, info_ptr).value(|| info)
+        let error = jvmti_unchecked!(self, GetThreadInfo, thread, info_ptr);
+
+        error.value(|| JvmtiThreadInfo::from_raw(self, info))
     }
 
     pub fn get_owned_monitor_info(&self, thread: jthread) -> JvmtiResult<Vec<jobject>> {
@@ -107,7 +275,7 @@ impl JvmtiEnv {
 
         let error = jvmti_unchecked!(self, GetOwnedMonitorInfo, thread, count_ptr, monitors_ptr);
 
-        error.value(|| as_vec(count, monitors))
+        error.value(|| self.as_vec(count, monitors))
     }
 
     pub fn get_current_contended_monitor(&self, thread: jthread) -> JvmtiResult<jobject> {
@@ -127,6 +295,7 @@ impl JvmtiEnv {
         jvmti_unchecked!(self, RunAgentThread, thread, _proc, arg, priority).value(|| ())
     }
 
+
     pub fn get_top_thread_groups(&self) -> JvmtiResult<Vec<jthreadGroup>> {
         let mut count: i32 = none();
         let count_ptr: *mut i32 = &mut count;
@@ -134,16 +303,18 @@ impl JvmtiEnv {
         let groups_ptr: *mut *mut jthreadGroup = &mut groups;
 
         let error = jvmti_unchecked!(self, GetTopThreadGroups, count_ptr, groups_ptr);
+        let value = error.value(|| self.as_vec(count, groups));
 
-        error.value(|| as_vec(count, groups))
+        value
     }
 
-    pub fn get_thread_group_info(&self, group: jthreadGroup) -> JvmtiResult<jvmtiThreadGroupInfo> {
+    pub fn get_thread_group_info(&self, group: jthreadGroup) -> JvmtiResult<JvmtiThreadGroupInfo> {
         let mut info: jvmtiThreadGroupInfo = none();
         let info_ptr: *mut jvmtiThreadGroupInfo = &mut info;
 
-        jvmti_unchecked!(self, GetThreadGroupInfo, group, info_ptr).value(|| info)
+        jvmti_unchecked!(self, GetThreadGroupInfo, group, info_ptr).value(|| JvmtiThreadGroupInfo::from_raw(self, info))
     }
+
 
     pub fn get_thread_group_children(
         &self,
@@ -169,7 +340,7 @@ impl JvmtiEnv {
             groups_ptr
         );
 
-        error.value(|| (as_vec(thread_count, threads), as_vec(group_count, groups)))
+        error.value(|| (self.as_vec(thread_count, threads), self.as_vec(group_count, groups)))
     }
 
     pub fn get_frame_count(&self, thread: jthread) -> JvmtiResult<jint> {
@@ -211,7 +382,7 @@ impl JvmtiEnv {
             method_ptr,
             location_ptr
         )
-        .value(|| (method, location))
+            .value(|| (method, location))
     }
 
     pub fn notify_frame_pop(&self, thread: jthread, depth: jint) -> JvmtiResult<()> {
@@ -351,7 +522,7 @@ impl JvmtiEnv {
 
         let error = jvmti_unchecked!(self, GetClassSignature, class, signature_ptr, generic_ptr);
 
-        error.value(|| (to_string(signature), to_string(generic)))
+        error.value(|| (self.to_string(signature), self.to_string(generic)))
     }
 
     pub fn get_class_status(&self, class: jclass) -> JvmtiResult<jint> {
@@ -365,7 +536,7 @@ impl JvmtiEnv {
         let mut name: *mut c_char = none();
         let name_ptr: *mut *mut c_char = &mut name;
 
-        jvmti_unchecked!(self, GetSourceFileName, class, name_ptr).value(|| to_string(name))
+        jvmti_unchecked!(self, GetSourceFileName, class, name_ptr).value(|| self.to_string(name))
     }
 
     pub fn get_class_modifiers(&self, class: jclass) -> JvmtiResult<jint> {
@@ -383,7 +554,7 @@ impl JvmtiEnv {
         let methods_ptr: *mut *mut jmethodID = &mut methods;
 
         jvmti_unchecked!(self, GetClassMethods, class, count_ptr, methods_ptr)
-            .value(|| as_vec(count, methods))
+            .value(|| self.as_vec(count, methods))
     }
 
     pub fn get_class_fields(&self, class: jclass) -> JvmtiResult<Vec<jfieldID>> {
@@ -394,7 +565,7 @@ impl JvmtiEnv {
         let fields_ptr: *mut *mut jfieldID = &mut fields;
 
         jvmti_unchecked!(self, GetClassFields, class, count_ptr, fields_ptr)
-            .value(|| as_vec(count, fields))
+            .value(|| self.as_vec(count, fields))
     }
 
     pub fn get_implemented_interfaces(&self, class: jclass) -> JvmtiResult<Vec<jclass>> {
@@ -411,7 +582,7 @@ impl JvmtiEnv {
             count_ptr,
             interfaces_ptr
         )
-        .value(|| as_vec(count, interfaces))
+            .value(|| self.as_vec(count, interfaces))
     }
 
     pub fn is_interface(&self, class: jclass) -> JvmtiResult<bool> {
@@ -442,11 +613,11 @@ impl JvmtiEnv {
         jvmti_unchecked!(self, GetObjectHashCode, object, hashcode_ptr).value(|| hashcode)
     }
 
-    pub fn get_object_monitor_usage(&self, object: jobject) -> JvmtiResult<jvmtiMonitorUsage> {
+    pub fn get_object_monitor_usage(&self, object: jobject) -> JvmtiResult<JvmtiMonitorUsage> {
         let mut usage: jvmtiMonitorUsage = none();
         let usage_ptr: *mut jvmtiMonitorUsage = &mut usage;
 
-        jvmti_unchecked!(self, GetObjectMonitorUsage, object, usage_ptr).value(|| usage)
+        jvmti_unchecked!(self, GetObjectMonitorUsage, object, usage_ptr).value(|| JvmtiMonitorUsage::from_raw(self, usage))
     }
 
     /// Returns name, signature, generic
@@ -474,7 +645,7 @@ impl JvmtiEnv {
             generic_ptr
         );
 
-        error.value(|| (to_string(name), to_string(signature), to_string(generic)))
+        error.value(|| (self.to_string(name), self.to_string(signature), self.to_string(generic)))
     }
 
     pub fn get_field_declaring_class(&self, class: jclass, field: jfieldID) -> JvmtiResult<jclass> {
@@ -520,7 +691,7 @@ impl JvmtiEnv {
             generic_ptr
         );
 
-        error.value(|| (to_string(name), to_string(signature), to_string(generic)))
+        error.value(|| (self.to_string(name), self.to_string(signature), self.to_string(generic)))
     }
 
     pub fn get_method_declaring_class(&self, method: jmethodID) -> JvmtiResult<jclass> {
@@ -562,7 +733,8 @@ impl JvmtiEnv {
         let table_ptr: *mut *mut jvmtiLineNumberEntry = &mut table;
 
         jvmti_unchecked!(self, GetLineNumberTable, method, count_ptr, table_ptr)
-            .value(|| as_vec(count, table))
+
+            .value(|| self.as_vec(count, table))
     }
 
     /// Returns start location, end location
@@ -579,7 +751,7 @@ impl JvmtiEnv {
     pub fn get_local_variable_table(
         &self,
         method: jmethodID,
-    ) -> JvmtiResult<Vec<jvmtiLocalVariableEntry>> {
+    ) -> JvmtiResult<Vec<JvmtiLocalVariableEntry>> {
         let mut count: i32 = none();
         let count_ptr: *mut i32 = &mut count;
 
@@ -587,7 +759,7 @@ impl JvmtiEnv {
         let table_ptr: *mut *mut jvmtiLocalVariableEntry = &mut table;
 
         jvmti_unchecked!(self, GetLocalVariableTable, method, count_ptr, table_ptr)
-            .value(|| as_vec(count, table))
+            .value(|| self.as_vec(count, table).iter().map(|t| JvmtiLocalVariableEntry::from_raw(self, t)).collect())
     }
 
     pub fn set_native_method_prefix(&self, prefix: &str) -> JvmtiResult<()> {
@@ -613,7 +785,7 @@ impl JvmtiEnv {
         let bytecodes_ptr: *mut *mut c_uchar = &mut bytecodes;
 
         jvmti_unchecked!(self, GetBytecodes, method, count_ptr, bytecodes_ptr)
-            .value(|| as_vec(count, bytecodes))
+            .value(|| self.as_vec(count, bytecodes))
     }
 
     pub fn is_method_native(&self, method: jmethodID) -> JvmtiResult<bool> {
@@ -639,7 +811,7 @@ impl JvmtiEnv {
         let classes_ptr: *mut *mut jclass = &mut classes;
 
         jvmti_unchecked!(self, GetLoadedClasses, count_ptr, classes_ptr)
-            .value(|| as_vec(count, classes))
+            .value(|| self.as_vec(count, classes))
     }
 
     pub fn get_class_loader_classes(&self, initiating_loader: jobject) -> JvmtiResult<Vec<jclass>> {
@@ -656,7 +828,7 @@ impl JvmtiEnv {
             count_ptr,
             classes_ptr
         )
-        .value(|| as_vec(count, classes))
+            .value(|| self.as_vec(count, classes))
     }
 
     pub fn pop_frame(&self, thread: jthread) -> JvmtiResult<()> {
@@ -716,7 +888,7 @@ impl JvmtiEnv {
         let extension_ptr: *mut *mut c_char = &mut extension;
 
         jvmti_unchecked!(self, GetSourceDebugExtension, class, extension_ptr)
-            .value(|| to_string(extension))
+            .value(|| self.to_string(extension))
     }
 
     pub fn is_method_obsolete(&self, method: jmethodID) -> JvmtiResult<bool> {
@@ -760,7 +932,7 @@ impl JvmtiEnv {
             stack_info_ptr,
             count_ptr
         )
-        .value(|| as_vec(count, stack_info))
+            .value(|| self.as_vec(count, stack_info))
     }
 
     pub fn get_thread_list_stack_traces(
@@ -774,7 +946,7 @@ impl JvmtiEnv {
         let mut stack_info: *mut jvmtiStackInfo = none();
         let stack_info_ptr: *mut *mut jvmtiStackInfo = &mut stack_info;
 
-        jvmti_unchecked!(
+        let value = jvmti_unchecked!(
             self,
             GetThreadListStackTraces,
             count,
@@ -782,7 +954,9 @@ impl JvmtiEnv {
             max_frame_count,
             stack_info_ptr
         )
-        .value(|| stack_info)
+            .value(|| stack_info);
+
+        value
     }
 
     pub fn get_thread_local_storage(&self, thread: jthread) -> JvmtiResult<*mut c_void> {
@@ -832,7 +1006,7 @@ impl JvmtiEnv {
             object_reference_callback,
             user_data
         )
-        .value(|| ())
+            .value(|| ())
     }
 
     pub fn iterate_over_reachable_objects(
@@ -850,7 +1024,7 @@ impl JvmtiEnv {
             object_ref_callback,
             user_data
         )
-        .value(|| ())
+            .value(|| ())
     }
 
     pub fn iterate_over_heap(
@@ -866,7 +1040,7 @@ impl JvmtiEnv {
             heap_object_callback,
             user_data
         )
-        .value(|| ())
+            .value(|| ())
     }
 
     pub fn iterate_over_instances_of_class(
@@ -884,7 +1058,7 @@ impl JvmtiEnv {
             heap_object_callback,
             user_data
         )
-        .value(|| ())
+            .value(|| ())
     }
 
     pub fn get_objects_with_tags(&self, tags: Vec<jlong>) -> JvmtiResult<Vec<(jobject, jlong)>> {
@@ -910,8 +1084,8 @@ impl JvmtiEnv {
             tag_result_ptr
         );
 
-        let object_vec = as_vec(result_count, object_result);
-        let tag_vec = as_vec(result_count, tag_result);
+        let object_vec = self.as_vec(result_count, object_result);
+        let tag_vec = self.as_vec(result_count, tag_result);
         let mut result: Vec<(jobject, jlong)> = Vec::new();
 
         for i in 0..result_count - 1 {
@@ -942,7 +1116,7 @@ impl JvmtiEnv {
             callbacks,
             user_data
         )
-        .value(|| ())
+            .value(|| ())
     }
 
     pub fn iterate_through_heap(
@@ -960,7 +1134,7 @@ impl JvmtiEnv {
             callbacks,
             user_data
         )
-        .value(|| ())
+            .value(|| ())
     }
 
     pub fn set_jni_function_table(
@@ -988,7 +1162,7 @@ impl JvmtiEnv {
         jvmti_unchecked!(self, GenerateEvents, event_type).value(|| ())
     }
 
-    pub fn get_extension_functions(&self) -> JvmtiResult<Vec<jvmtiExtensionFunctionInfo>> {
+    pub fn get_extension_functions(&self) -> JvmtiResult<Vec<JvmtiExtensionFunctionInfo>> {
         let mut count: i32 = none();
         let count_ptr: *mut i32 = &mut count;
 
@@ -996,10 +1170,10 @@ impl JvmtiEnv {
         let extensions_ptr: *mut *mut jvmtiExtensionFunctionInfo = &mut extensions;
 
         jvmti_unchecked!(self, GetExtensionFunctions, count_ptr, extensions_ptr)
-            .value(|| as_vec(count, extensions))
+            .value(|| self.as_vec(count, extensions).iter().map(|t| JvmtiExtensionFunctionInfo::from_raw(self, t)).collect())
     }
 
-    pub fn get_extension_events(&self) -> JvmtiResult<Vec<jvmtiExtensionEventInfo>> {
+    pub fn get_extension_events(&self) -> JvmtiResult<Vec<JvmtiExtensionEventInfo>> {
         let mut count: i32 = none();
         let count_ptr: *mut i32 = &mut count;
 
@@ -1007,7 +1181,7 @@ impl JvmtiEnv {
         let extensions_ptr: *mut *mut jvmtiExtensionEventInfo = &mut extensions;
 
         jvmti_unchecked!(self, GetExtensionEvents, count_ptr, extensions_ptr)
-            .value(|| as_vec(count, extensions))
+            .value(|| self.as_vec(count, extensions).iter().map(|t| JvmtiExtensionEventInfo::from_raw(self, t)).collect())
     }
 
     pub fn set_extension_event_callback(
@@ -1021,7 +1195,7 @@ impl JvmtiEnv {
             extension_event_index,
             callback
         )
-        .value(|| ())
+            .value(|| ())
     }
 
     pub fn dispose_environment(&self) -> JvmtiResult<()> {
@@ -1032,7 +1206,7 @@ impl JvmtiEnv {
         let mut name: *mut c_char = none();
         let name_ptr: *mut *mut c_char = &mut name;
 
-        jvmti_unchecked!(self, GetErrorName, error, name_ptr).value(|| to_string(name))
+        jvmti_unchecked!(self, GetErrorName, error, name_ptr).value(|| self.to_string(name))
     }
 
     pub fn get_jlocation_format(&self) -> JvmtiResult<jvmtiJlocationFormat> {
@@ -1051,7 +1225,7 @@ impl JvmtiEnv {
         let value_ptr: *mut *mut c_char = &mut value;
 
         jvmti_unchecked!(self, GetSystemProperty, as_c_char(property), value_ptr)
-            .value(|| to_string(value))
+            .value(|| self.to_string(value))
     }
 
     pub fn set_system_property(&self, property: &str, value: &str) -> JvmtiResult<()> {
@@ -1061,7 +1235,7 @@ impl JvmtiEnv {
             as_c_char(property),
             as_c_char(value)
         )
-        .value(|| ())
+            .value(|| ())
     }
 
     pub fn get_phase(&self) -> JvmtiResult<jvmtiPhase> {
@@ -1170,7 +1344,7 @@ impl JvmtiEnv {
             bytes_ptr
         );
 
-        error.value(|| (count, as_vec(byte_count, bytes)))
+        error.value(|| (count, self.as_vec(byte_count, bytes)))
     }
 
     pub fn get_environment_local_storage(&self) -> JvmtiResult<*mut c_void> {
@@ -1203,6 +1377,7 @@ impl JvmtiEnv {
         jvmti_unchecked!(self, RetransformClasses, count, ptr).value(|| ())
     }
 
+
     pub fn get_owned_monitor_stack_depth_info(
         &self,
         thread: jthread,
@@ -1221,7 +1396,7 @@ impl JvmtiEnv {
             monitor_info_ptr
         );
 
-        error.value(|| as_vec(count, monitor_info))
+        error.value(|| self.as_vec(count, monitor_info))
     }
 
     pub fn get_object_size(&self, object: jobject) -> JvmtiResult<jlong> {

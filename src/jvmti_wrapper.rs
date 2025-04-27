@@ -34,16 +34,6 @@ impl JvmtiThreadInfo {
             context_class_loader: info.context_class_loader,
         }
     }
-
-    pub fn to_raw(&self) -> jvmtiThreadInfo {
-        jvmtiThreadInfo {
-            name: CString::new(self.name.clone()).unwrap().into_raw(),
-            priority: self.priority as jint,
-            is_daemon: self.is_daemon as jboolean,
-            thread_group: self.thread_group,
-            context_class_loader: self.context_class_loader,
-        }
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -67,17 +57,6 @@ impl JvmtiLocalVariableEntry {
             slot: entry.slot as i32,
         }
     }
-
-    pub fn to_raw(&self) -> jvmtiLocalVariableEntry {
-        jvmtiLocalVariableEntry {
-            start_location: self.start_location,
-            length: self.length as jint,
-            name: CString::new(self.name.clone()).unwrap().into_raw().into(),
-            signature: CString::new(self.signature.clone()).unwrap().into_raw().into(),
-            generic_signature: CString::new(self.generic_signature.clone()).unwrap().into_raw().into(),
-            slot: self.slot as jint,
-        }
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -95,15 +74,6 @@ impl JvmtiThreadGroupInfo {
             name: to_string(info.name),
             max_priority: info.max_priority as i32,
             is_daemon: info.is_daemon == 1,
-        }
-    }
-
-    pub fn to_raw(&self) -> jvmtiThreadGroupInfo {
-        jvmtiThreadGroupInfo {
-            parent: self.parent,
-            name: CString::new(self.name.clone()).unwrap().into_raw(),
-            max_priority: self.max_priority as jint,
-            is_daemon: self.is_daemon as jboolean,
         }
     }
 }
@@ -211,7 +181,6 @@ pub struct JvmtiEnv {
 }
 
 impl JvmtiEnv {
-
     pub fn set_event_notification_mode(
         &self,
         mode: jvmtiEventMode,
@@ -225,9 +194,8 @@ impl JvmtiEnv {
             event_type,
             event_thread
         )
-            .value(|| ())
+        .value(|| ())
     }
-
 
     pub fn get_all_threads(&self) -> JvmtiResult<Vec<jthread>> {
         let mut count: i32 = none();
@@ -262,9 +230,7 @@ impl JvmtiEnv {
 
         let error = jvmti_unchecked!(self, GetThreadInfo, thread, info_ptr);
 
-        let s = JvmtiThreadInfo::from_raw(info);
-
-        error.value(|| s)
+        error.value(|| JvmtiThreadInfo::from_raw(info))
     }
 
     pub fn get_owned_monitor_info(&self, thread: jthread) -> JvmtiResult<Vec<jobject>> {
@@ -311,9 +277,9 @@ impl JvmtiEnv {
         let mut info: jvmtiThreadGroupInfo = none();
         let info_ptr: *mut jvmtiThreadGroupInfo = &mut info;
 
-        jvmti_unchecked!(self, GetThreadGroupInfo, group, info_ptr).value(|| JvmtiThreadGroupInfo::from_raw(info))
+        jvmti_unchecked!(self, GetThreadGroupInfo, group, info_ptr)
+            .value(|| JvmtiThreadGroupInfo::from_raw(info))
     }
-
 
     pub fn get_thread_group_children(
         &self,
@@ -381,7 +347,7 @@ impl JvmtiEnv {
             method_ptr,
             location_ptr
         )
-            .value(|| (method, location))
+        .value(|| (method, location))
     }
 
     pub fn notify_frame_pop(&self, thread: jthread, depth: jint) -> JvmtiResult<()> {
@@ -581,7 +547,7 @@ impl JvmtiEnv {
             count_ptr,
             interfaces_ptr
         )
-            .value(|| as_vec(count, interfaces))
+        .value(|| as_vec(count, interfaces))
     }
 
     pub fn is_interface(&self, class: jclass) -> JvmtiResult<bool> {
@@ -616,7 +582,8 @@ impl JvmtiEnv {
         let mut usage: jvmtiMonitorUsage = none();
         let usage_ptr: *mut jvmtiMonitorUsage = &mut usage;
 
-        jvmti_unchecked!(self, GetObjectMonitorUsage, object, usage_ptr).value(|| JvmtiMonitorUsage::from_raw(usage))
+        jvmti_unchecked!(self, GetObjectMonitorUsage, object, usage_ptr)
+            .value(|| JvmtiMonitorUsage::from_raw(usage))
     }
 
     /// Returns name, signature, generic
@@ -732,7 +699,6 @@ impl JvmtiEnv {
         let table_ptr: *mut *mut jvmtiLineNumberEntry = &mut table;
 
         jvmti_unchecked!(self, GetLineNumberTable, method, count_ptr, table_ptr)
-
             .value(|| as_vec(count, table))
     }
 
@@ -757,8 +723,12 @@ impl JvmtiEnv {
         let mut table: *mut jvmtiLocalVariableEntry = none();
         let table_ptr: *mut *mut jvmtiLocalVariableEntry = &mut table;
 
-        jvmti_unchecked!(self, GetLocalVariableTable, method, count_ptr, table_ptr)
-            .value(|| as_vec(count, table).iter().map(|t| JvmtiLocalVariableEntry::from_raw(t)).collect())
+        jvmti_unchecked!(self, GetLocalVariableTable, method, count_ptr, table_ptr).value(|| {
+            as_vec(count, table)
+                .iter()
+                .map(|t| JvmtiLocalVariableEntry::from_raw(t))
+                .collect()
+        })
     }
 
     pub fn set_native_method_prefix(&self, prefix: &str) -> JvmtiResult<()> {
@@ -827,7 +797,7 @@ impl JvmtiEnv {
             count_ptr,
             classes_ptr
         )
-            .value(|| as_vec(count, classes))
+        .value(|| as_vec(count, classes))
     }
 
     pub fn pop_frame(&self, thread: jthread) -> JvmtiResult<()> {
@@ -931,7 +901,7 @@ impl JvmtiEnv {
             stack_info_ptr,
             count_ptr
         )
-            .value(|| as_vec(count, stack_info))
+        .value(|| as_vec(count, stack_info))
     }
 
     pub fn get_thread_list_stack_traces(
@@ -953,7 +923,7 @@ impl JvmtiEnv {
             max_frame_count,
             stack_info_ptr
         )
-            .value(|| stack_info);
+        .value(|| stack_info);
 
         value
     }
@@ -1005,7 +975,7 @@ impl JvmtiEnv {
             object_reference_callback,
             user_data
         )
-            .value(|| ())
+        .value(|| ())
     }
 
     pub fn iterate_over_reachable_objects(
@@ -1023,7 +993,7 @@ impl JvmtiEnv {
             object_ref_callback,
             user_data
         )
-            .value(|| ())
+        .value(|| ())
     }
 
     pub fn iterate_over_heap(
@@ -1039,7 +1009,7 @@ impl JvmtiEnv {
             heap_object_callback,
             user_data
         )
-            .value(|| ())
+        .value(|| ())
     }
 
     pub fn iterate_over_instances_of_class(
@@ -1057,7 +1027,7 @@ impl JvmtiEnv {
             heap_object_callback,
             user_data
         )
-            .value(|| ())
+        .value(|| ())
     }
 
     pub fn get_objects_with_tags(&self, tags: Vec<jlong>) -> JvmtiResult<Vec<(jobject, jlong)>> {
@@ -1115,7 +1085,7 @@ impl JvmtiEnv {
             callbacks,
             user_data
         )
-            .value(|| ())
+        .value(|| ())
     }
 
     pub fn iterate_through_heap(
@@ -1133,7 +1103,7 @@ impl JvmtiEnv {
             callbacks,
             user_data
         )
-            .value(|| ())
+        .value(|| ())
     }
 
     pub fn set_jni_function_table(
@@ -1168,8 +1138,12 @@ impl JvmtiEnv {
         let mut extensions: *mut jvmtiExtensionFunctionInfo = ptr::null_mut();
         let extensions_ptr: *mut *mut jvmtiExtensionFunctionInfo = &mut extensions;
 
-        jvmti_unchecked!(self, GetExtensionFunctions, count_ptr, extensions_ptr)
-            .value(|| as_vec(count, extensions).iter().map(|t| JvmtiExtensionFunctionInfo::from_raw(t)).collect())
+        jvmti_unchecked!(self, GetExtensionFunctions, count_ptr, extensions_ptr).value(|| {
+            as_vec(count, extensions)
+                .iter()
+                .map(|t| JvmtiExtensionFunctionInfo::from_raw(t))
+                .collect()
+        })
     }
 
     pub fn get_extension_events(&self) -> JvmtiResult<Vec<JvmtiExtensionEventInfo>> {
@@ -1179,8 +1153,12 @@ impl JvmtiEnv {
         let mut extensions: *mut jvmtiExtensionEventInfo = ptr::null_mut();
         let extensions_ptr: *mut *mut jvmtiExtensionEventInfo = &mut extensions;
 
-        jvmti_unchecked!(self, GetExtensionEvents, count_ptr, extensions_ptr)
-            .value(|| as_vec(count, extensions).iter().map(|t| JvmtiExtensionEventInfo::from_raw(t)).collect())
+        jvmti_unchecked!(self, GetExtensionEvents, count_ptr, extensions_ptr).value(|| {
+            as_vec(count, extensions)
+                .iter()
+                .map(|t| JvmtiExtensionEventInfo::from_raw(t))
+                .collect()
+        })
     }
 
     pub fn set_extension_event_callback(
@@ -1194,7 +1172,7 @@ impl JvmtiEnv {
             extension_event_index,
             callback
         )
-            .value(|| ())
+        .value(|| ())
     }
 
     pub fn dispose_environment(&self) -> JvmtiResult<()> {
@@ -1234,7 +1212,7 @@ impl JvmtiEnv {
             as_c_char(property),
             as_c_char(value)
         )
-            .value(|| ())
+        .value(|| ())
     }
 
     pub fn get_phase(&self) -> JvmtiResult<jvmtiPhase> {
@@ -1375,7 +1353,6 @@ impl JvmtiEnv {
 
         jvmti_unchecked!(self, RetransformClasses, count, ptr).value(|| ())
     }
-
 
     pub fn get_owned_monitor_stack_depth_info(
         &self,

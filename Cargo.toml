@@ -1,7 +1,7 @@
 [package]
 name = "simple_jvmti"
-version = "0.1.0"
-authors = ["Helly Guo <hellyguo@foxmail.com>"]
+version = "0.2.0"
+authors = ["Helly Guo <hellyguo@foxmail.com>", "RenDiego"]
 edition = "2021"
 exclude = []
 homepage = "https://itcraft.cn/simple_jvmti"
@@ -23,6 +23,6 @@ crate-type = ["rlib"]
 
 [dependencies]
 jni = "0.21.1"
-thiserror = "1.0.50"
+thiserror = "2.0.12"
 
 [dev-dependencies]

@@ -84,7 +84,7 @@ pub enum jvmtiHeapReferenceKind {
     JVMTI_HEAP_REFERENCE_OTHER = 27,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub enum jvmtiPrimitiveType {
     JVMTI_PRIMITIVE_TYPE_BOOLEAN = 90,
@@ -97,7 +97,7 @@ pub enum jvmtiPrimitiveType {
     JVMTI_PRIMITIVE_TYPE_DOUBLE = 68,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub enum jvmtiHeapObjectFilter {
     JVMTI_HEAP_OBJECT_TAGGED = 1,
@@ -105,7 +105,7 @@ pub enum jvmtiHeapObjectFilter {
     JVMTI_HEAP_OBJECT_EITHER = 3,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub enum jvmtiHeapRootKind {
     JVMTI_HEAP_ROOT_JNI_GLOBAL = 1,
@@ -117,7 +117,7 @@ pub enum jvmtiHeapRootKind {
     JVMTI_HEAP_ROOT_OTHER = 7,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub enum jvmtiObjectReferenceKind {
     JVMTI_REFERENCE_CLASS = 1,
@@ -131,7 +131,7 @@ pub enum jvmtiObjectReferenceKind {
     JVMTI_REFERENCE_CONSTANT_POOL = 9,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub enum jvmtiIterationControl {
     JVMTI_ITERATION_CONTINUE = 1,
@@ -146,14 +146,14 @@ pub const JVMTI_CLASS_STATUS_ERROR: c_uint = 8;
 pub const JVMTI_CLASS_STATUS_ARRAY: c_uint = 16;
 pub const JVMTI_CLASS_STATUS_PRIMITIVE: c_uint = 32;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub enum jvmtiEventMode {
     JVMTI_ENABLE = 1,
     JVMTI_DISABLE = 0,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub enum jvmtiParamTypes {
     JVMTI_TYPE_JBYTE = 101,
@@ -175,7 +175,7 @@ pub enum jvmtiParamTypes {
     JVMTI_TYPE_JNIENV = 117,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub enum jvmtiParamKind {
     JVMTI_KIND_IN = 91,
@@ -187,7 +187,7 @@ pub enum jvmtiParamKind {
     JVMTI_KIND_OUT_BUF = 97,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub enum jvmtiTimerKind {
     JVMTI_TIMER_USER_CPU = 30,
@@ -195,7 +195,7 @@ pub enum jvmtiTimerKind {
     JVMTI_TIMER_ELAPSED = 32,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub enum jvmtiPhase {
     JVMTI_PHASE_ONLOAD = 1,
@@ -217,7 +217,7 @@ pub const JVMTI_VERSION_SHIFT_MAJOR: c_uint = 16;
 pub const JVMTI_VERSION_SHIFT_MINOR: c_uint = 8;
 pub const JVMTI_VERSION_SHIFT_MICRO: c_uint = 0;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub enum jvmtiVerboseFlag {
     JVMTI_VERBOSE_OTHER = 0,
@@ -226,7 +226,7 @@ pub enum jvmtiVerboseFlag {
     JVMTI_VERBOSE_JNI = 4,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub enum jvmtiJlocationFormat {
     JVMTI_JLOCATION_JVMBCI = 1,
@@ -294,7 +294,7 @@ pub enum jvmtiError {
 pub const JVMTI_ERROR_MAX: c_uint = 116;
 
 pub const JVMTI_MIN_EVENT_TYPE_VAL: c_uint = 50;
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub enum jvmtiEvent {
     JVMTI_EVENT_VM_INIT = 50,

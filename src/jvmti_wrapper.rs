@@ -15,7 +15,7 @@ macro_rules! jvmti_unchecked {
     };
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct JvmtiThreadInfo {
     pub name: String,
     pub priority: i32,
@@ -46,7 +46,7 @@ impl JvmtiThreadInfo {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct JvmtiLocalVariableEntry {
     pub start_location: jlocation,
     pub length: i32,
@@ -80,7 +80,7 @@ impl JvmtiLocalVariableEntry {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct JvmtiThreadGroupInfo {
     pub parent: jthreadGroup,
     pub name: String,
@@ -108,7 +108,7 @@ impl JvmtiThreadGroupInfo {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct JvmtiMonitorUsage {
     pub owner: jthread,
     pub entry_count: i32,
